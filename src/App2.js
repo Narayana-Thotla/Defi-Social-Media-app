@@ -1,73 +1,31 @@
 import { useEffect, useState } from "react";
-// import {
-//   urlClient,
-//   LENS_HUB_CONTRACT_ADDRESS,
-//   queryRecommendedProfiles,
-//   queryExplorePublications,
-// } from "./queries";
 import {
   urlClient,
-  LENS_HUB_CONTRACT_ADDRESS,
   queryRecommendedProfiles,
   queryExplorePublications,
 } from "./qqueries";
-import LENSHUB from "./lenshub";
 import { ethers } from "ethers";
 import { Box, Button, Image } from "@chakra-ui/react";
 
-function App() {
-  const [account, setAccount] = useState(null);
-  const [profiles, setProfiles] = useState([]);
-  const [posts, setPosts] = useState([]);
-
-  async function signIn() {
-    const accounts = await window.ethereum.request({
-      method: "eth_requestAccounts",
-    });
-    setAccount(accounts[0]);
+const AUTHENTICATE_MUTATION = `
+  mutation Authenticate($request: SignedAuthChallenge!) {
+    authenticate(request: $request) {
+      accessToken
+      refreshToken
+    }
   }
+`;
 
-  async function getRecommendedProfiles() {
-    const response = await urlClient
-      .query(queryRecommendedProfiles)
-      .toPromise();
-      console.log(response);
-
-    // const profiles = response.data.recommendedProfiles.slice(0, 5);
-    // const profiles = response.data.accounts.items.slice(0, 5);
-    const profiles = response.data.accounts.items;
-    console.log('profiles:--->',profiles);
-    setProfiles(profiles);
+const CHALLENGE_QUERY = `
+  query Challenge($request: ChallengeRequest!) {
+    challenge(request: $request) {
+      id
+      text
+    }
   }
+`;
 
-  async function getPosts() {
-    const response = await urlClient
-      .query(queryExplorePublications)
-      .toPromise();
-
-      console.log('posts:--->',response);
-    // const posts = response.data.explorePublications.items.filter((post) => {
-    //   if (post.profile) return post;
-    //   return "";
-    // });
-    const posts = response.data.posts.items
-    setPosts(posts);
-  }
-console.log('posts useeffect one:--->',posts);
-
-  // async function follow(id) {
-  //   const provider = new ethers.providers.Web3Provider(window.ethereum);
-  //   const contract = new ethers.Contract(
-  //     LENS_HUB_CONTRACT_ADDRESS,
-  //     LENSHUB,
-  //     provider.getSigner()
-  //   );
-  //   const tx = await contract.follow([parseInt(id)], [0x0]);
-  //   await tx.wait();
-  // }
-
-// ---------------------------------- FOLLOW FUNCTION USING API ----------------- -----------------
-  const FOLLOW_MUTATION = `
+const FOLLOW_MUTATION = `
   mutation Follow($request: FollowRequest!) {
     follow(request: $request) {
       ... on FollowResponse {
@@ -83,27 +41,94 @@ console.log('posts useeffect one:--->',posts);
   }
 `;
 
-async function follow(accountAddress) {
-  if (!window.ethereum) {
-    alert("Please install MetaMask!");
-    return;
+function App() {
+  const [account, setAccount] = useState(null);
+  const [accessToken, setAccessToken] = useState(null);
+  const [profiles, setProfiles] = useState([]);
+  const [posts, setPosts] = useState([]);
+
+  async function signIn() {
+    try {
+        console.log("Starting sign-in process...",window.ethereum);
+      if (!window.ethereum) {
+        alert("Please install MetaMask!");
+        return;
+      }
+
+      // Step 1: Connect wallet
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      const connectedAccount = accounts[0];
+      setAccount(connectedAccount);
+
+      // Step 2: Get challenge from Lens
+      const challengeResponse = await urlClient.query(CHALLENGE_QUERY, {
+        request: {
+          accountOwner: {
+            account: connectedAccount,
+            owner: connectedAccount,
+          },
+        },
+      }).toPromise();
+
+      const { id, text } = challengeResponse.data.challenge;
+
+      // Step 3: Sign the challenge
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const signature = await signer.signMessage(text);
+
+      // Step 4: Authenticate with Lens
+      const authResponse = await urlClient.mutation(AUTHENTICATE_MUTATION, {
+        request: { id, signature },
+      }).toPromise();
+
+      const token = authResponse.data.authenticate.accessToken;
+      setAccessToken(token);
+      console.log("Authenticated! Access token:", token);
+
+    } catch (err) {
+      console.error("Sign in error:", err);
+    }
   }
 
-  await window.ethereum.request({ method: "eth_requestAccounts" });
-
-  const result = await urlClient.mutation(FOLLOW_MUTATION, {
-    request: {
-      account: accountAddress,
-    },
-  }).toPromise();
-
-  if (result.error) {
-    console.error("Follow error:", result.error);
-    return;
+  async function getRecommendedProfiles() {
+    const response = await urlClient.query(queryRecommendedProfiles).toPromise();
+    const profiles = response.data.accounts.items;
+    setProfiles(profiles);
   }
 
-  console.log("Follow result:", result.data);
-}
+  async function getPosts() {
+    const response = await urlClient.query(queryExplorePublications).toPromise();
+    const posts = response.data.posts.items;
+    setPosts(posts);
+  }
+
+  async function follow(accountAddress) {
+    if (!accessToken) {
+      alert("Please sign in first!");
+      return;
+    }
+
+    const result = await urlClient.mutation(FOLLOW_MUTATION, {
+      request: { account: accountAddress },
+    }, {
+      fetchOptions: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    }).toPromise();
+
+    if (result.error) {
+      console.error("Follow error:", result.error);
+      return;
+    }
+
+    console.log("Follow result:", result.data);
+    alert("Followed successfully!");
+  }
 
   useEffect(() => {
     getRecommendedProfiles();
@@ -112,31 +137,25 @@ async function follow(accountAddress) {
 
   const parseImageUrl = (profile) => {
     if (profile) {
-      // const url = profile.picture?.original?.url;
       const url = profile?.metadata?.picture;
       if (url && url.startsWith("ipfs:")) {
         const ipfsHash = url.split("//")[1];
         return `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
       }
-
       return url;
     }
-
     return "/default-avatar.png";
   };
 
   const parseImageUrlForPost = (post) => {
     if (post) {
-      // const url = profile.picture?.original?.url;
       const url = post?.author?.metadata?.picture;
       if (url && url.startsWith("ipfs:")) {
         const ipfsHash = url.split("//")[1];
         return `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
       }
-
       return url;
     }
-
     return "/default-avatar.png";
   };
 
@@ -154,18 +173,14 @@ async function follow(accountAddress) {
           padding="10px 0"
         >
           <Box>
-            <Box
-              fontFamily="DM Serif Display"
-              fontSize="44px"
-              fontStyle="italic"
-            >
+            <Box fontFamily="DM Serif Display" fontSize="44px" fontStyle="italic">
               DECENTRA
             </Box>
-            <Box> Decentralized Social Media App</Box>
+            <Box>Decentralized Social Media App</Box>
           </Box>
           {account ? (
             <Box backgroundColor="#000" padding="15px" borderRadius="6px">
-              Connected
+              {accessToken ? "Authenticated ✓" : "Connected (not authenticated)"}
             </Box>
           ) : (
             <Button
@@ -173,7 +188,7 @@ async function follow(accountAddress) {
               color="rgba(5,32,64)"
               _hover={{ backgroundColor: "#808080" }}
             >
-              Connect
+              Connect & Sign In
             </Button>
           )}
         </Box>
@@ -206,7 +221,7 @@ async function follow(accountAddress) {
                     width="75px"
                     height="75px"
                     onError={({ currentTarget }) => {
-                      currentTarget.onerror = null; // prevents looping
+                      currentTarget.onerror = null;
                       currentTarget.src = "/default-avatar.png";
                     }}
                   />
@@ -216,7 +231,7 @@ async function follow(accountAddress) {
                 <Box flexGrow={1} marginLeft="20px">
                   <Box display="flex" justifyContent="space-between">
                     <Box fontFamily="DM Serif Display" fontSize="24px">
-                     {post.author?.username?.localName}
+                      {post.author?.username?.localName}
                     </Box>
                     <Box height="50px" _hover={{ cursor: "pointer" }}>
                       <Image
@@ -229,7 +244,7 @@ async function follow(accountAddress) {
                     </Box>
                   </Box>
                   <Box overflowWrap="anywhere" fontSize="14px">
-                   {post.metadata?.content}
+                    {post.metadata?.content}
                   </Box>
                 </Box>
               </Box>
@@ -262,7 +277,7 @@ async function follow(accountAddress) {
                   width="40px"
                   height="40px"
                   onError={({ currentTarget }) => {
-                    currentTarget.onerror = null; // prevents looping
+                    currentTarget.onerror = null;
                     currentTarget.src = "/default-avatar.png";
                   }}
                 />
