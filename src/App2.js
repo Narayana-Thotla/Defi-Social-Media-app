@@ -7,11 +7,32 @@ import {
 import { ethers } from "ethers";
 import { Box, Button, Image } from "@chakra-ui/react";
 
+// const AUTHENTICATE_MUTATION = `
+//   mutation Authenticate($request: SignedAuthChallenge!) {
+//     authenticate(request: $request) {
+//       accessToken
+//       refreshToken
+//     }
+//   }
+// `;
+
 const AUTHENTICATE_MUTATION = `
   mutation Authenticate($request: SignedAuthChallenge!) {
     authenticate(request: $request) {
-      accessToken
-      refreshToken
+      ... on AuthenticationTokens {
+        accessToken
+        refreshToken
+        idToken
+      }
+      ... on WrongSignerError {
+        reason
+      }
+      ... on ExpiredChallengeError {
+        reason
+      }
+      ... on ForbiddenError {
+        reason
+      }
     }
   }
 `;
@@ -25,8 +46,34 @@ const CHALLENGE_QUERY = `
   }
 `;
 
+const CHALLENGE_MUTATION = `
+  mutation Challenge($request: ChallengeRequest!) {
+    challenge(request: $request) {
+      id
+      text
+    }
+  }
+`;
+
+// const FOLLOW_MUTATION = `
+//   mutation Follow($request: FollowRequest!) {
+//     follow(request: $request) {
+//       ... on FollowResponse {
+//         hash
+//       }
+//       ... on SponsoredTransactionRequest {
+//         reason
+//       }
+//       ... on SelfFundedTransactionRequest {
+//         reason
+//       }
+//     }
+//   }
+// `;
+
+
 const FOLLOW_MUTATION = `
-  mutation Follow($request: FollowRequest!) {
+  mutation Follow($request: CreateFollowRequest!) {
     follow(request: $request) {
       ... on FollowResponse {
         hash
@@ -41,15 +88,129 @@ const FOLLOW_MUTATION = `
   }
 `;
 
+
 function App() {
   const [account, setAccount] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [profiles, setProfiles] = useState([]);
   const [posts, setPosts] = useState([]);
 
+  // async function signIn() {
+  //   try {
+  //       console.log("Starting sign-in process...",window.ethereum);
+  //     if (!window.ethereum) {
+  //       alert("Please install MetaMask!");
+  //       return;
+  //     }
+
+  //     // Step 1: Connect wallet
+  //     const accounts = await window.ethereum.request({
+  //       method: "eth_requestAccounts",
+  //     });
+  //     const connectedAccount = accounts[0];
+  //     setAccount(connectedAccount);
+
+  //     // Step 2: Get challenge from Lens
+  //     const challengeResponse = await urlClient.query(CHALLENGE_QUERY, {
+  //       request: {
+  //         accountOwner: {
+  //           account: connectedAccount,
+  //           owner: connectedAccount,
+  //         },
+  //       },
+  //     }).toPromise();
+
+  //    { console.log("Challenge response:", challengeResponse);}
+  //    { console.log("connected account:", connectedAccount);}
+  //     const { id, text } = challengeResponse.data.challenge;
+
+  //     // Step 3: Sign the challenge
+  //     const provider = new ethers.providers.Web3Provider(window.ethereum);
+  //     const signer = provider.getSigner();
+  //     const signature = await signer.signMessage(text);
+
+  //     // Step 4: Authenticate with Lens
+  //     const authResponse = await urlClient.mutation(AUTHENTICATE_MUTATION, {
+  //       request: { id, signature },
+  //     }).toPromise();
+
+  //     const token = authResponse.data.authenticate.accessToken;
+  //     setAccessToken(token);
+  //     console.log("Authenticated! Access token:", token);
+
+  //   } catch (err) {
+  //     console.error("Sign in error:", err);
+  //   }
+  // }
+
+  // --------------------------------------------------
+  // async function signIn() {
+  //   try {
+  //     if (!window.ethereum) {
+  //       alert("Please install MetaMask!");
+  //       return;
+  //     }
+
+  //     // Step 1: Connect wallet
+  //     const accounts = await window.ethereum.request({
+  //       method: "eth_requestAccounts",
+  //     });
+  //     const connectedAccount = accounts[0];
+  //     setAccount(connectedAccount);
+  //     console.log("Connected account:", connectedAccount);
+
+  //     // Step 2: Get challenge from Lens (mutation not query!)
+  //     const challengeResponse = await urlClient.mutation(CHALLENGE_MUTATION, {
+  //       request: {
+  //         accountOwner: {
+  //           account: connectedAccount,
+  //           owner: connectedAccount,
+  //         },
+  //       },
+  //     }).toPromise();
+
+  //     console.log("Challenge response:", challengeResponse);
+
+  //     if (!challengeResponse.data?.challenge) {
+  //       console.error("Challenge failed:", challengeResponse.error);
+  //       alert("Challenge failed: " + challengeResponse.error?.message);
+  //       return;
+  //     }
+
+  //     const { id, text } = challengeResponse.data.challenge;
+
+  //     // Step 3: Sign the challenge
+  //     const provider = new ethers.providers.Web3Provider(window.ethereum);
+  //     const signer = provider.getSigner();
+  //     const signature = await signer.signMessage(text);
+  //     console.log("Signature:", signature);
+
+  //     // Step 4: Authenticate with Lens
+  //     const authResponse = await urlClient.mutation(AUTHENTICATE_MUTATION, {
+  //       request: { id, signature },
+  //     }).toPromise();
+
+  //     console.log("Auth response:", authResponse);
+
+  //     if (!authResponse.data?.authenticate) {
+  //       console.error("Auth failed:", authResponse.error);
+  //       alert("Auth failed: " + authResponse.error?.message);
+  //       return;
+  //     }
+
+  //     const token = authResponse.data.authenticate.accessToken;
+  //     setAccessToken(token);
+  //     console.log("Authenticated! Access token:", token);
+
+  //   } catch (err) {
+  //     console.error("Sign in error:", err);
+  //     alert("Error: " + err.message);
+  //   }
+  // }
+
+  // ---------------------------------- SIGN IN FUNCTION USING API ----------------- -----------------
   async function signIn() {
     try {
-        console.log("Starting sign-in process...",window.ethereum);
       if (!window.ethereum) {
         alert("Please install MetaMask!");
         return;
@@ -61,74 +222,174 @@ function App() {
       });
       const connectedAccount = accounts[0];
       setAccount(connectedAccount);
+      console.log("Connected account:", connectedAccount);
 
-      // Step 2: Get challenge from Lens
-      const challengeResponse = await urlClient.query(CHALLENGE_QUERY, {
-        request: {
-          accountOwner: {
-            account: connectedAccount,
-            owner: connectedAccount,
+      // Step 2: Get Lens account address
+      const accountResponse = await urlClient
+        .query(
+          `
+      query {
+        accountsAvailable(request: { 
+          managedBy: "${connectedAccount}",
+          includeOwned: true 
+        }) {
+          items {
+            ... on AccountOwned {
+              account {
+                address
+                username {
+                  localName
+                }
+              }
+            }
+          }
+        }
+      }
+    `,
+        )
+        .toPromise();
+
+      console.log("Accounts available:", accountResponse);
+
+      const lensAccount =
+        accountResponse.data?.accountsAvailable?.items?.[0]?.account?.address;
+
+      if (!lensAccount) {
+        alert("No Lens account found! Please create one at hey.xyz first.");
+        return;
+      }
+
+      console.log("Lens account:", lensAccount);
+
+      // Step 3: Get challenge
+      const challengeResponse = await urlClient
+        .mutation(CHALLENGE_MUTATION, {
+          request: {
+            accountOwner: {
+              account: lensAccount,
+              owner: connectedAccount,
+            },
           },
-        },
-      }).toPromise();
+        })
+        .toPromise();
+
+      console.log("Challenge response:", challengeResponse);
+
+      if (!challengeResponse.data?.challenge) {
+        console.error("Challenge failed:", challengeResponse.error);
+        alert("Challenge failed: " + challengeResponse.error?.message);
+        return;
+      }
 
       const { id, text } = challengeResponse.data.challenge;
+      console.log("Challenge id:", id, "text:", text);
 
-      // Step 3: Sign the challenge
+      // Step 4: Sign the challenge
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       const signature = await signer.signMessage(text);
+      console.log("Signature:", signature);
 
-      // Step 4: Authenticate with Lens
-      const authResponse = await urlClient.mutation(AUTHENTICATE_MUTATION, {
-        request: { id, signature },
-      }).toPromise();
+      // Step 5: Authenticate with Lens
+      const authResponse = await urlClient
+        .mutation(AUTHENTICATE_MUTATION, {
+          request: { id, signature },
+        })
+        .toPromise();
 
+      console.log("Auth response:", authResponse);
+
+      if (!authResponse.data?.authenticate) {
+        console.error("Auth failed:", authResponse.error);
+        alert("Auth failed: " + authResponse.error?.message);
+        return;
+      }
       const token = authResponse.data.authenticate.accessToken;
       setAccessToken(token);
       console.log("Authenticated! Access token:", token);
-
     } catch (err) {
       console.error("Sign in error:", err);
+      alert("Error: " + err.message);
     }
   }
 
+  // -------------------------------------------------
   async function getRecommendedProfiles() {
-    const response = await urlClient.query(queryRecommendedProfiles).toPromise();
+    const response = await urlClient
+      .query(queryRecommendedProfiles)
+      .toPromise();
     const profiles = response.data.accounts.items;
     setProfiles(profiles);
   }
 
   async function getPosts() {
-    const response = await urlClient.query(queryExplorePublications).toPromise();
+    const response = await urlClient
+      .query(queryExplorePublications)
+      .toPromise();
     const posts = response.data.posts.items;
     setPosts(posts);
   }
 
+  // async function follow(accountAddress) {
+  //   if (!accessToken) {
+  //     alert("Please sign in first!");
+  //     return;
+  //   }
+
+  //   const result = await urlClient
+  //     .mutation(
+  //       FOLLOW_MUTATION,
+  //       {
+  //         request: { account: accountAddress },
+  //       },
+  //       {
+  //         fetchOptions: {
+  //           headers: {
+  //             Authorization: `Bearer ${accessToken}`,
+  //           },
+  //         },
+  //       },
+  //     )
+  //     .toPromise();
+
+  //   if (result.error) {
+  //     console.error("Follow error:", result.error);
+  //     return;
+  //   }
+
+  //   console.log("Follow result:", result.data);
+  //   alert("Followed successfully!");
+  // }
+
+
   async function follow(accountAddress) {
-    if (!accessToken) {
-      alert("Please sign in first!");
-      return;
-    }
-
-    const result = await urlClient.mutation(FOLLOW_MUTATION, {
-      request: { account: accountAddress },
-    }, {
-      fetchOptions: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    }).toPromise();
-
-    if (result.error) {
-      console.error("Follow error:", result.error);
-      return;
-    }
-
-    console.log("Follow result:", result.data);
-    alert("Followed successfully!");
+  if (!accessToken) {
+    alert("Please sign in first!");
+    return;
   }
+
+  const result = await urlClient.mutation(FOLLOW_MUTATION, {
+    request: {
+      account: accountAddress,
+      graph: "0xB6Df20bCDaf7b5E9147e445Bc3B2832B15ec0c3f",
+    },
+  }, {
+    fetchOptions: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  }).toPromise();
+
+  if (result.error) {
+    console.error("Follow error:", result.error);
+    alert("Follow error: " + result.error.message);
+    return;
+  }
+
+  console.log("Follow result:", result.data);
+  alert("Followed successfully!");
+}
 
   useEffect(() => {
     getRecommendedProfiles();
@@ -173,14 +434,20 @@ function App() {
           padding="10px 0"
         >
           <Box>
-            <Box fontFamily="DM Serif Display" fontSize="44px" fontStyle="italic">
+            <Box
+              fontFamily="DM Serif Display"
+              fontSize="44px"
+              fontStyle="italic"
+            >
               DECENTRA
             </Box>
             <Box>Decentralized Social Media App</Box>
           </Box>
           {account ? (
             <Box backgroundColor="#000" padding="15px" borderRadius="6px">
-              {accessToken ? "Authenticated ✓" : "Connected (not authenticated)"}
+              {accessToken
+                ? "Authenticated ✓"
+                : "Connected (not authenticated)"}
             </Box>
           ) : (
             <Button
