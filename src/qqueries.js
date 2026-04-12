@@ -513,3 +513,287 @@ query ExplorePosts {
 
 // -----------------------------------------------------
 
+// ─── ADD THESE TO YOUR EXISTING queries.js / qqueries.js FILE ───────────────
+
+// export const CREATE_POST_MUTATION = `
+//   mutation CreatePost($request: CreatePostRequest!) {
+//     post(request: $request) {
+//       ... on PostResponse {
+//         hash
+//       }
+//       ... on SponsoredTransactionRequest {
+//         reason
+//       }
+//       ... on SelfFundedTransactionRequest {
+//         reason
+//       }
+//       ... on TransactionWillFail {
+//         reason
+//       }
+//     }
+//   }
+// `;
+
+// export const ADD_REACTION_MUTATION = `
+//   mutation AddReaction($request: AddReactionRequest!) {
+//     addReaction(request: $request) {
+//       ... on AddReactionResponse {
+//         success
+//       }
+//       ... on AddReactionFailure {
+//         reason
+//       }
+//     }
+//   }
+// `;
+
+// export const COMMENT_ON_POST_MUTATION = `
+//   mutation CreatePost($request: CreatePostRequest!) {
+//     post(request: $request) {
+//       ... on PostResponse {
+//         hash
+//       }
+//       ... on SponsoredTransactionRequest {
+//         reason
+//       }
+//       ... on SelfFundedTransactionRequest {
+//         reason
+//       }
+//       ... on TransactionWillFail {
+//         reason
+//       }
+//     }
+//   }
+// `;
+
+// export const FETCH_COMMENTS_QUERY = `
+//   query FetchComments($postId: PostId!) {
+//     posts(request: { filter: { commentOn: { id: $postId } } }) {
+//       items {
+//         ... on Post {
+//           id
+//           timestamp
+//           metadata {
+//             ... on TextOnlyMetadata {
+//               content
+//             }
+//           }
+//           author {
+//             address
+//             username {
+//               localName
+//             }
+//             metadata {
+//               name
+//               picture
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// `;
+
+// export const FETCH_PROFILE_QUERY = `
+//   query FetchProfile($address: EvmAddress!) {
+//     account(request: { address: $address }) {
+//       address
+//       username {
+//         localName
+//       }
+//       metadata {
+//         name
+//         bio
+//         picture
+//         coverPicture
+//       }
+//       stats {
+//         followers
+//         following
+//         posts
+//       }
+//     }
+//   }
+// `;
+
+// export const FETCH_ACCOUNT_POSTS_QUERY = `
+//   query FetchAccountPosts($address: EvmAddress!) {
+//     posts(request: { filter: { authors: [$address] } }) {
+//       items {
+//         ... on Post {
+//           id
+//           timestamp
+//           metadata {
+//             ... on TextOnlyMetadata {
+//               content
+//             }
+//             ... on ImageMetadata {
+//               content
+//               image {
+//                 item
+//               }
+//             }
+//           }
+//           stats {
+//             comments
+//             reposts
+//             reactions
+//           }
+//         }
+//       }
+//     }
+//   }
+// `;
+
+//------------------------------------------------------------------
+
+// ─── REPLACE the broken queries in your qqueries.js with these ───────────────
+// ─── REPLACE these in your qqueries.js ───────────────────────────────────────
+
+export const FETCH_PROFILE_QUERY = `
+  query FetchProfile($address: EvmAddress!) {
+    account(request: { address: $address }) {
+      address
+      username {
+        localName
+      }
+      metadata {
+        name
+        bio
+        picture
+        coverPicture
+      }
+    }
+  }
+`;
+
+// ✅ FIX: stats are fetched separately via accountStats in Lens v3
+// export const FETCH_ACCOUNT_STATS_QUERY = `
+//   query FetchAccountStats($address: EvmAddress!) {
+//     accountStats(request: { account: $address }) {
+//       followers
+//       following
+//       posts
+//     }
+//   }
+// `;
+
+export const FETCH_ACCOUNT_STATS_QUERY = `
+  query FetchAccountStats($address: EvmAddress!) {
+    accountStats(request: { account: $address }) {
+      graphFollowStats {
+        followers
+        following
+      }
+    }
+  }
+`;
+
+export const FETCH_ACCOUNT_POSTS_QUERY = `
+  query FetchAccountPosts($address: EvmAddress!) {
+    posts(request: { filter: { authors: [$address] } }) {
+      items {
+        ... on Post {
+          id
+          timestamp
+          metadata {
+            ... on TextOnlyMetadata {
+              content
+            }
+            ... on ImageMetadata {
+              content
+              image {
+                item
+              }
+            }
+          }
+          stats {
+            comments
+            reposts
+            reactions
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const FETCH_COMMENTS_QUERY = `
+  query FetchComments($postId: PostId!) {
+    posts(request: { filter: { commentOn: { post: $postId } } }) {
+      items {
+        ... on Post {
+          id
+          timestamp
+          metadata {
+            ... on TextOnlyMetadata {
+              content
+            }
+          }
+          author {
+            address
+            username {
+              localName
+            }
+            metadata {
+              name
+              picture
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const CREATE_POST_MUTATION = `
+  mutation CreatePost($request: CreatePostRequest!) {
+    post(request: $request) {
+      ... on PostResponse {
+        hash
+      }
+      ... on SponsoredTransactionRequest {
+        reason
+      }
+      ... on SelfFundedTransactionRequest {
+        reason
+      }
+      ... on TransactionWillFail {
+        reason
+      }
+    }
+  }
+`;
+
+// ✅ FIX: commentOn shape is { post: postId } not { id: postId }
+export const COMMENT_ON_POST_MUTATION = `
+  mutation CreatePost($request: CreatePostRequest!) {
+    post(request: $request) {
+      ... on PostResponse {
+        hash
+      }
+      ... on SponsoredTransactionRequest {
+        reason
+      }
+      ... on SelfFundedTransactionRequest {
+        reason
+      }
+      ... on TransactionWillFail {
+        reason
+      }
+    }
+  }
+`;
+
+export const ADD_REACTION_MUTATION = `
+  mutation AddReaction($request: AddReactionRequest!) {
+    addReaction(request: $request) {
+      ... on AddReactionResponse {
+        success
+      }
+      ... on AddReactionFailure {
+        reason
+      }
+    }
+  }
+`;
