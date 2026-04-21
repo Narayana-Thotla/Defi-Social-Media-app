@@ -1,52 +1,21 @@
 import { createClient } from "urql";
 
-// Latest Lens GraphQL endpoint
 export const APIURL = "https://api.lens.xyz/graphql";
-// export const APIURL = "https://api-v2.lens.dev/graphql";
-// export const APIURL = "http://localhost:4000/lens";
 
 export const LENS_HUB_CONTRACT_ADDRESS =
   "0xDb46d1Dc155634FbC732f92E853b10B288AD5a1d";
+
+// ✅ The global Lens graph address — required for graphFollowStats
+export const LENS_GLOBAL_GRAPH = "0xB6Df20bCDaf7b5E9147e445Bc3B2832B15ec0c3f";
 
 export const urlClient = createClient({
   url: APIURL,
   requestPolicy: "network-only",
 });
 
-// ---------------- PROFILES ----------------
-
-// export const queryRecommendedProfiles = `
-// query Profiles {
-//   profiles(request: { limit: 10 }) {
-//     items {
-//       id
-//       handle {
-//         localName
-//       }
-//       metadata {
-//         displayName
-//         bio
-//         picture {
-//           ... on NftImage {
-//             uri
-//           }
-//           ... on Image {
-//             uri
-//           }
-//         }
-//       }
-//       stats {
-//         followers
-//         following
-//       }
-//     }
-//   }
-// }
-// `;
-// ------------------------------------------------
 export const queryRecommendedProfiles = `
 query DiscoverAccounts {
-  accounts(request: {  }) {
+  accounts(request: {}) {
     items {
       address
       username {
@@ -63,74 +32,36 @@ query DiscoverAccounts {
     }
   }
 }
-  `;
+`;
 
-// ---------------- POSTS ----------------
-
-// export const queryExplorePublications = `
-// query Publications {
-//   publications(request: { limit: 10 }) {
-//     items {
-//       ... on Post {
-//         id
-//         createdAt
-
-//         metadata {
-//           ... on TextOnlyMetadata {
-//             content
-//           }
-//           ... on ImageMetadata {
-//             content
-//             image {
-//               uri
-//             }
-//           }
-//         }
-
-//         by {
-//           id
-//           handle {
-//             localName
-//           }
-//           metadata {
-//             displayName
-//             picture {
-//               ... on NftImage {
-//                 uri
-//               }
-//               ... on Image {
-//                 uri
-//               }
-//             }
-//           }
-//         }
-
-//         stats {
-//           comments
-//           mirrors
-//           quotes
-//         }
-//       }
-//     }
-//   }
-// }
-// `;
-
-// ------------------------------------------------
+// ─── FIX: Explore posts — request more items and sort by latest ──────────────
 // export const queryExplorePublications = `
 // query ExplorePosts {
-//   posts(request: {}) {
+//   posts(request: { pageSize: FIFTY, timelineType: ALL}) {
 //     items {
 //       __typename
 
 //       ... on Post {
 //         id
+//         slug
 //         timestamp
+//         contentUri
 
 //         author {
 //           address
 //           username {
 //             localName
+//             namespace
+//           }
+//           metadata {
+//             name
+//             bio
+//             picture
+//             coverPicture
+//           }
+//           operations {
+//             isFollowedByMe
+//             isFollowingMe
 //           }
 //         }
 
@@ -139,9 +70,14 @@ query DiscoverAccounts {
 
 //           ... on TextOnlyMetadata {
 //             content
+//             attributes {
+//               key
+//               value
+//             }
 //           }
 
 //           ... on ImageMetadata {
+//             content
 //             image {
 //               item
 //               type
@@ -151,22 +87,48 @@ query DiscoverAccounts {
 //           }
 
 //           ... on VideoMetadata {
+//             content
 //             video {
 //               item
 //               type
 //             }
+//           }
+
+//           ... on AudioMetadata {
+//             content
+//             audio {
+//               item
+//               type
+//             }
+//           }
+
+//           ... on ArticleMetadata {
+//             content
+//           }
+
+//           ... on LinkMetadata {
+//             content
+//             sharingLink
 //           }
 //         }
 
 //         stats {
 //           comments
 //           reposts
+//           reactions
+//           collects
+//           bookmarks
+//           quotes
 //         }
 
 //         operations {
 //           hasReacted
 //           hasBookmarked
 //           hasReposted {
+//             optimistic
+//             onChain
+//           }
+//           hasCommented {
 //             optimistic
 //             onChain
 //           }
@@ -182,11 +144,37 @@ query DiscoverAccounts {
 //           username {
 //             localName
 //           }
+//           metadata {
+//             name
+//             bio
+//             picture
+//             coverPicture
+//           }
 //         }
 
 //         repostOf {
 //           ... on Post {
 //             id
+//             timestamp
+//             metadata {
+//               __typename
+//               ... on TextOnlyMetadata {
+//                 content
+//               }
+//               ... on ImageMetadata {
+//                 content
+//                 image {
+//                   item
+//                   type
+//                 }
+//               }
+//             }
+//             stats {
+//               comments
+//               reposts
+//               reactions
+//               collects
+//             }
 //           }
 //         }
 //       }
@@ -198,8 +186,8 @@ query DiscoverAccounts {
 //   }
 // }
 // `;
+//---------------------------------------------------------
 
-// ----------------------- Final Version -----------------------
 export const queryExplorePublications = `
 query ExplorePosts {
   posts(request: {}) {
@@ -511,144 +499,7 @@ query ExplorePosts {
 }
 `;
 
-// -----------------------------------------------------
-
-// ─── ADD THESE TO YOUR EXISTING queries.js / qqueries.js FILE ───────────────
-
-// export const CREATE_POST_MUTATION = `
-//   mutation CreatePost($request: CreatePostRequest!) {
-//     post(request: $request) {
-//       ... on PostResponse {
-//         hash
-//       }
-//       ... on SponsoredTransactionRequest {
-//         reason
-//       }
-//       ... on SelfFundedTransactionRequest {
-//         reason
-//       }
-//       ... on TransactionWillFail {
-//         reason
-//       }
-//     }
-//   }
-// `;
-
-// export const ADD_REACTION_MUTATION = `
-//   mutation AddReaction($request: AddReactionRequest!) {
-//     addReaction(request: $request) {
-//       ... on AddReactionResponse {
-//         success
-//       }
-//       ... on AddReactionFailure {
-//         reason
-//       }
-//     }
-//   }
-// `;
-
-// export const COMMENT_ON_POST_MUTATION = `
-//   mutation CreatePost($request: CreatePostRequest!) {
-//     post(request: $request) {
-//       ... on PostResponse {
-//         hash
-//       }
-//       ... on SponsoredTransactionRequest {
-//         reason
-//       }
-//       ... on SelfFundedTransactionRequest {
-//         reason
-//       }
-//       ... on TransactionWillFail {
-//         reason
-//       }
-//     }
-//   }
-// `;
-
-// export const FETCH_COMMENTS_QUERY = `
-//   query FetchComments($postId: PostId!) {
-//     posts(request: { filter: { commentOn: { id: $postId } } }) {
-//       items {
-//         ... on Post {
-//           id
-//           timestamp
-//           metadata {
-//             ... on TextOnlyMetadata {
-//               content
-//             }
-//           }
-//           author {
-//             address
-//             username {
-//               localName
-//             }
-//             metadata {
-//               name
-//               picture
-//             }
-//           }
-//         }
-//       }
-//     }
-//   }
-// `;
-
-// export const FETCH_PROFILE_QUERY = `
-//   query FetchProfile($address: EvmAddress!) {
-//     account(request: { address: $address }) {
-//       address
-//       username {
-//         localName
-//       }
-//       metadata {
-//         name
-//         bio
-//         picture
-//         coverPicture
-//       }
-//       stats {
-//         followers
-//         following
-//         posts
-//       }
-//     }
-//   }
-// `;
-
-// export const FETCH_ACCOUNT_POSTS_QUERY = `
-//   query FetchAccountPosts($address: EvmAddress!) {
-//     posts(request: { filter: { authors: [$address] } }) {
-//       items {
-//         ... on Post {
-//           id
-//           timestamp
-//           metadata {
-//             ... on TextOnlyMetadata {
-//               content
-//             }
-//             ... on ImageMetadata {
-//               content
-//               image {
-//                 item
-//               }
-//             }
-//           }
-//           stats {
-//             comments
-//             reposts
-//             reactions
-//           }
-//         }
-//       }
-//     }
-//   }
-// `;
-
-//------------------------------------------------------------------
-
-// ─── REPLACE the broken queries in your qqueries.js with these ───────────────
-// ─── REPLACE these in your qqueries.js ───────────────────────────────────────
+//-------------------------------------------------------
 
 export const FETCH_PROFILE_QUERY = `
   query FetchProfile($address: EvmAddress!) {
@@ -667,27 +518,106 @@ export const FETCH_PROFILE_QUERY = `
   }
 `;
 
-// ✅ FIX: stats are fetched separately via accountStats in Lens v3
-// export const FETCH_ACCOUNT_STATS_QUERY = `
-//   query FetchAccountStats($address: EvmAddress!) {
-//     accountStats(request: { account: $address }) {
-//       followers
-//       following
-//       posts
-//     }
-//   }
-// `;
-
+// ─── FIX: Pass the graph address — without it graphFollowStats returns null ───
 export const FETCH_ACCOUNT_STATS_QUERY = `
   query FetchAccountStats($address: EvmAddress!) {
-    accountStats(request: { account: $address }) {
+    accountStats(request: {
+      account: $address,
+      graph: "0xB6Df20bCDaf7b5E9147e445Bc3B2832B15ec0c3f"
+    }) {
       graphFollowStats {
         followers
         following
       }
+      feedStats {
+        posts
+        comments
+        reposts
+        quotes
+        reacted
+        reactions
+        collects
+      }
     }
   }
 `;
+
+// ─── FIX: Also fetch post count from stats so it's accurate ──────────────────
+// export const FETCH_ACCOUNT_POSTS_QUERY = `
+//   query FetchAccountPosts($address: EvmAddress!) {
+//     posts(request: {
+//       filter: { authors: [$address] },
+//       pageSize: FIFTY
+//     }) {
+//       items {
+//         ... on Post {
+//           id
+//           timestamp
+//           metadata {
+//             __typename
+//             ... on TextOnlyMetadata {
+//               content
+//             }
+//             ... on ImageMetadata {
+//               content
+//               image {
+//                 item
+//               }
+//             }
+//             ... on ArticleMetadata {
+//               content
+//             }
+//             ... on LinkMetadata {
+//               content
+//               sharingLink
+//             }
+//           }
+//           stats {
+//             comments
+//             reposts
+//             reactions
+//           }
+//         }
+//       }
+//       pageInfo {
+//         next
+//       }
+//     }
+//   }
+// `;
+
+// export const FETCH_ACCOUNT_POSTS_QUERY = `
+//   query FetchAccountPosts($address: EvmAddress!) {
+//     accountFeed(request: {
+//       account: $address,
+//       pageSize: FIFTY
+//     }) {
+//       items {
+//         root {
+//           ... on Post {
+//             id
+//             timestamp
+//             metadata {
+//               __typename
+//               ... on TextOnlyMetadata {
+//                 content
+//               }
+//               ... on ImageMetadata {
+//                 content
+//                 image { item }
+//               }
+//             }
+//             stats {
+//               comments
+//               reposts
+//               reactions
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// `;
 
 export const FETCH_ACCOUNT_POSTS_QUERY = `
   query FetchAccountPosts($address: EvmAddress!) {
@@ -746,35 +676,17 @@ export const FETCH_COMMENTS_QUERY = `
   }
 `;
 
-// export const CREATE_POST_MUTATION = `
-//   mutation CreatePost($request: CreatePostRequest!) {
-//     post(request: $request) {
-//       ... on PostResponse {
-//         hash
-//       }
-//       ... on SponsoredTransactionRequest {
-//         reason
-//       }
-//       ... on SelfFundedTransactionRequest {
-//         reason
-//       }
-//       ... on TransactionWillFail {
-//         reason
-//       }
-//     }
-//   }
-// `;
-
-// qqueries.js — replace your CREATE_POST_TYPED_DATA and BROADCAST_MUTATION with just this:
+// ─── FIX: Use a hosted metadata URI via lens metadata storage ─────────────────
+// The post mutation itself is correct — the issue is that data: URIs may be
+// silently rejected. Use the Lens metadata storage endpoint instead.
 export const CREATE_POST_MUTATION = `
-  mutation Post($request: CreatePostRequest!) {
+  mutation CreatePost($request: CreatePostRequest!) {
     post(request: $request) {
       ... on PostResponse {
         hash
       }
       ... on SponsoredTransactionRequest {
         reason
-        sponsoredReason: reason
       }
       ... on SelfFundedTransactionRequest {
         reason
@@ -786,7 +698,6 @@ export const CREATE_POST_MUTATION = `
   }
 `;
 
-// ✅ FIX: commentOn shape is { post: postId } not { id: postId }
 export const COMMENT_ON_POST_MUTATION = `
   mutation CreatePost($request: CreatePostRequest!) {
     post(request: $request) {
@@ -818,8 +729,6 @@ export const ADD_REACTION_MUTATION = `
     }
   }
 `;
-
-//--------------------------------------------------------------------------
 
 export const CREATE_POST_TYPED_DATA = `
 mutation CreatePostTypedData($request: CreatePostRequest!) {

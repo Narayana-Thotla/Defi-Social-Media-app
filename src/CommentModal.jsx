@@ -228,7 +228,7 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Textarea, Spinner } from "@chakra-ui/react";
 import { urlClient } from "./qqueries";
-import { COMMENT_ON_POST_MUTATION, FETCH_COMMENTS_QUERY } from "./qqueries";
+import { COMMENT_ON_POST_MUTATION, FETCH_COMMENTS_QUERY } from "./qqueries2";
 
 const parseImageUrl = (url) => {
   if (!url) return "/default-avatar.png";
